@@ -29,8 +29,8 @@ window.addEventListener('DOMContentLoaded', () => {
     setupEvents();
     renderOrders();
     renderMessages();
-    renderSkeletons('home-grid', 4); // Show initial skeleton loaders
-    setTimeout(renderHome, 800); // Simulate network load
+    renderSkeletons('home-grid', 4);
+    setTimeout(renderHome, 800);
 });
 
 // NUI Listener
