@@ -1,33 +1,38 @@
-local tabletOpen = false
+local isVisible = false
 
 RegisterCommand("tablet", function()
-    tabletOpen = not tabletOpen
-
-    SetNuiFocus(tabletOpen, tabletOpen)
-
-    SendNUIMessage({
-        action = tabletOpen and "open" or "close"
-    })
-end, false)
-
-RegisterNUICallback("closeTablet", function(data, cb)
-    tabletOpen = false
-    SetNuiFocus(false, false)
-    cb("ok")
+    isVisible = not isVisible
+    SetNuiFocus(isVisible, isVisible) -- Habilita ratón y teclado si es visible
+    
+    if isVisible then
+        SendNUIMessage({ action = "open" })
+    else
+        SendNUIMessage({ action = "close" })
+    end
 end)
 
--- cerrar con ESC
-CreateThread(function()
-    while true do
-        Wait(0)
+-- Callback que recibe el mensaje de cierre desde JS
+RegisterNUICallback("closeTablet", function(data, cb)
+    isVisible = false
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
 
-        if tabletOpen and IsControlJustReleased(0, 322) then
-            tabletOpen = false
-            SetNuiFocus(false,false)
+RegisterCommand('marketplace', function()
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'open',
+        balance = GetPlayerMoney(), -- tu funcion de dinero
+        items = Config.Items -- tus items del config
+    })
+end)
 
-            SendNUIMessage({
-                action = "close"
-            })
-        end
-    end
+RegisterNUICallback('close', function(data, cb)
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
+
+RegisterNUICallback('purchase', function(data, cb)
+    TriggerServerEvent('marketplace:purchase', data.items, data.total)
+    cb({ success = true })
 end)
