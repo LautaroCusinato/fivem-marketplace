@@ -1,391 +1,453 @@
-// ============================================
-// MARKETPLACE - FiveM NUI Script
-// ============================================
+// --- STATE MANAGEMENT ---
+const State = {
+    // Implicitly injected exact user details
+    user: { name: 'Fruti Dev', dni: '46958193' }, 
+    inventory: [
+        { name: 'weapon_pistol', label: 'Combat Pistol', count: 2 },
+        { name: 'bread', label: 'Fresh Bread', count: 15 },
+        { name: 'repairkit', label: 'Repair Kit', count: 4 }
+    ],
+    marketData: [],
+    cart: [],
+    favourites: new Set(),
+    orders: [
+        { id: '#ORD-9921', item: 'Garrett Turbocharger', date: 'Just now', amount: 12000, status: 'completed' },
+        { id: '#ORD-9922', item: 'Combat Pistol', date: 'Yesterday', amount: 4500, status: 'pending' }
+    ],
+    filter: 'all',
+    search: '',
+    sort: 'recent',
+    priceMin: '',
+    priceMax: '',
+    theme: 'light'
+};
 
-// Items data - Will be populated from server via NUI message
-let marketplaceItems = [
-    { id: 1, name: "Bread", price: 50, stock: 150, image: "img/items/bread.png" },
-    { id: 2, name: "Water Bottle", price: 30, stock: 200, image: "img/items/water.png" },
-    { id: 3, name: "Medkit", price: 500, stock: 25, image: "img/items/medkit.png" },
-    { id: 4, name: "Repair Kit", price: 800, stock: 10, image: "img/items/repairkit.png" },
-    { id: 5, name: "Phone", price: 2500, stock: 50, image: "img/items/phone.png" },
-    { id: 6, name: "Lockpick", price: 150, stock: 5, image: "img/items/lockpick.png" },
-    { id: 7, name: "Radio", price: 350, stock: 30, image: "img/items/radio.png" },
-    { id: 8, name: "Flashlight", price: 200, stock: 45, image: "img/items/flashlight.png" },
-    { id: 9, name: "Bandage", price: 100, stock: 100, image: "img/items/bandage.png" },
-    { id: 10, name: "Armor Vest", price: 5000, stock: 8, image: "img/items/armor.png" }
-];
+// --- INITIALIZATION ---
+window.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    generateMockData(); 
+    setupEvents();
+    renderOrders();
+    renderMessages();
+    renderSkeletons('home-grid', 4);
+    setTimeout(renderHome, 800);
+});
 
-// Cart state
-let cart = [];
-let playerBalance = 50000;
-
-// DOM Elements
-const container = document.getElementById('marketplace-container');
-const itemsListEl = document.getElementById('items-list');
-const cartItemsEl = document.getElementById('cart-items');
-const cartEmptyEl = document.getElementById('cart-empty');
-const cartCountEl = document.getElementById('cart-count');
-const totalAmountEl = document.getElementById('total-amount');
-const playerBalanceEl = document.getElementById('player-balance');
-const confirmBtn = document.getElementById('confirm-btn');
-
-// ============================================
-// FIVEM NUI MESSAGE HANDLER
-// ============================================
-window.addEventListener('message', function(event) {
+// NUI Listener
+window.addEventListener('message', (event) => {
     const data = event.data;
-    
-    switch(data.action) {
-        case 'open':
-            openMarketplace(data);
-            break;
-        case 'close':
-            closeMarketplace();
-            break;
-        case 'updateItems':
-            if (data.items) {
-                marketplaceItems = data.items;
-                renderItems();
-            }
-            break;
-        case 'updateBalance':
-            if (data.balance !== undefined) {
-                playerBalance = data.balance;
-                playerBalanceEl.textContent = formatPrice(playerBalance);
-                updateConfirmButton();
-            }
-            break;
-        case 'purchaseResult':
-            handlePurchaseResult(data);
-            break;
+    if (data.action === "open") {
+        document.getElementById('app').style.display = 'flex';
+        switchTab('home');
+        fetchData();
+    } else if (data.action === "close") {
+        closeUI();
+    } else if (data.action === "update") {
+        State.marketData = data.ads;
+        if(data.inventory) State.inventory = data.inventory;
+        renderAllGrids();
     }
 });
 
-// ============================================
-// MARKETPLACE FUNCTIONS
-// ============================================
-
-function openMarketplace(data) {
-    if (data.items) {
-        marketplaceItems = data.items;
-    }
-    if (data.balance !== undefined) {
-        playerBalance = data.balance;
-        playerBalanceEl.textContent = formatPrice(playerBalance);
-    }
-    
-    container.classList.add('active');
-    renderItems();
-    renderCart();
-}
-
-function closeMarketplace() {
-    container.classList.remove('active');
-}
-
 function closeUI() {
-    closeMarketplace();
+    fetch(`https://${GetParentResourceName()}/closeTablet`, { method: 'POST', body: JSON.stringify({}) }).catch(()=>{});
+    document.getElementById('app').style.display = 'none';
+    closeAllModals();
+}
+
+// --- THEME TOGGLE ---
+function toggleTheme() {
+    State.theme = State.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', State.theme);
+    const icon = document.getElementById('theme-icon');
+    icon.setAttribute('data-lucide', State.theme === 'light' ? 'moon' : 'sun');
+    lucide.createIcons();
+}
+
+// --- DATA LOGIC ---
+function generateMockData() {
+    const templates = [
+        { name: 'weapon_assaultrifle', label: 'Assault Rifle MK2', price: 45000, cat: 'weapons', cond: 'Factory New' },
+        { name: 'turbo', label: 'Turbocharger', price: 12000, cat: 'tools', cond: 'Used' },
+        { name: 'medikit', label: 'First Aid Kit', price: 500, cat: 'consumables', cond: 'New' },
+        { name: 'adder', label: 'Truffade Adder Keys', price: 120000, cat: 'vehicles', cond: 'Pristine' },
+        { name: 'armor', label: 'Heavy Armor', price: 2500, cat: 'weapons', cond: 'Damaged' }
+    ];
     
-    // Send close event to FiveM client
-    fetch(`https://${GetParentResourceName()}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-    }).catch(() => {});
-}
-
-function GetParentResourceName() {
-    return window.GetParentResourceName ? window.GetParentResourceName() : 'marketplace';
-}
-
-function handlePurchaseResult(data) {
-    if (data.success) {
-        showToast('Purchase successful!');
-        cart = [];
-        renderCart();
-        if (data.newBalance !== undefined) {
-            playerBalance = data.newBalance;
-            playerBalanceEl.textContent = formatPrice(playerBalance);
-        }
-        if (data.updatedItems) {
-            marketplaceItems = data.updatedItems;
-            renderItems();
-        }
-    } else {
-        showToast(data.message || 'Purchase failed!');
+    for(let i=1; i<=20; i++) {
+        let t = templates[Math.floor(Math.random() * templates.length)];
+        State.marketData.push({
+            id: i, item: t.name, label: t.label, price: Math.floor(t.price * (0.8 + Math.random()*0.4)), 
+            qty: Math.floor(Math.random() * 5) + 1, seller: Math.random() > 0.8 ? State.user.name : 'Vendor_' + i, 
+            category: t.cat, condition: t.cond
+        });
     }
+    populateSelect();
 }
 
-// ============================================
-// RENDER FUNCTIONS
-// ============================================
+// --- ROUTING / VIEW SWITCHING ---
+const ViewTitles = {
+    home: 'Home', explore: 'Explore Market', favourites: 'Your Favourites', orders: 'Order History', messages: 'Messages', settings: 'Account Settings'
+};
 
-function renderItems(filter = '') {
-    const searchValue = document.getElementById('search-input').value.toLowerCase();
-    const filterText = filter || searchValue;
+function switchTab(tabId) {
+    document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-nav li').forEach(el => el.classList.remove('active'));
     
-    const filteredItems = marketplaceItems.filter(item => 
-        item.name.toLowerCase().includes(filterText)
-    );
+    document.getElementById(`view-${tabId}`).classList.add('active');
+    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
     
-    itemsListEl.innerHTML = filteredItems.map((item, index) => `
-        <div class="item-row" style="animation-delay: ${index * 0.05}s">
-            <div class="item-icon">
-                <img src="${item.image}" alt="${item.name}" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg class=\\'placeholder-icon\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1\\'><path d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'></path></svg>';">
+    document.getElementById('page-title').innerText = ViewTitles[tabId];
+    const filters = document.getElementById('explore-filters');
+    
+    if(tabId === 'explore') {
+        filters.classList.remove('hidden');
+        renderSkeletons('explore-grid', 8);
+        setTimeout(renderExplore, 500);
+    } else {
+        filters.classList.add('hidden');
+    }
+
+    if(tabId === 'favourites') renderFavourites();
+    if(tabId === 'home') renderHome();
+}
+
+// --- DROPDOWNS ---
+function toggleDropdown(id) {
+    const menu = document.querySelector(`.dropdown[data-dropdown="${id}"] .dropdown-menu`);
+    document.querySelectorAll('.dropdown-menu').forEach(m => { if(m !== menu) m.classList.remove('show') });
+    menu.classList.toggle('show');
+}
+
+function selectDropdown(id, text) {
+    document.getElementById('loc-text').innerText = text;
+    toggleDropdown(id);
+}
+
+function selectSort(sortType, text) {
+    State.sort = sortType;
+    document.getElementById('sort-text').innerText = text;
+    toggleDropdown('sort');
+    renderAllGrids();
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    }
+});
+
+
+// --- RENDERING ---
+function renderAllGrids() {
+    if(document.getElementById('view-home').classList.contains('active')) renderHome();
+    if(document.getElementById('view-explore').classList.contains('active')) renderExplore();
+    if(document.getElementById('view-favourites').classList.contains('active')) renderFavourites();
+}
+
+function getSortedFilteredData() {
+    let filtered = State.marketData.filter(item => {
+        const matchCat = State.filter === 'all' || item.category === State.filter;
+        const matchSearch = item.label.toLowerCase().includes(State.search.toLowerCase());
+        const matchMin = State.priceMin === '' || item.price >= parseInt(State.priceMin);
+        const matchMax = State.priceMax === '' || item.price <= parseInt(State.priceMax);
+        return matchCat && matchSearch && matchMin && matchMax;
+    });
+
+    filtered.sort((a, b) => {
+        if(State.sort === 'price_asc') return a.price - b.price;
+        if(State.sort === 'price_desc') return b.price - a.price;
+        return b.id - a.id; 
+    });
+    return filtered;
+}
+
+function renderSkeletons(containerId, count) {
+    const container = document.getElementById(containerId);
+    let html = '';
+    for(let i=0; i<count; i++) {
+        html += `
+            <div class="skeleton-card">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
             </div>
-            <div class="item-info">
-                <div class="item-name">${item.name}</div>
-                <div class="item-stock">
-                    <span class="stock-indicator ${getStockClass(item.stock)}"></span>
-                    <span class="stock-text ${getStockClass(item.stock)}">${getStockText(item.stock)}</span>
-                </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function createCardHTML(item) {
+    const isMine = item.seller === State.user.name;
+    const isFav = State.favourites.has(item.id);
+    const condClass = item.condition === 'Damaged' ? 'damaged' : '';
+    const imgUrl = `https://via.placeholder.com/200/f1f5f9/0f172a?text=${item.label.split(' ')[0]}`;
+
+    return `
+        <div class="product-card" onclick="openProductModal(${item.id})">
+            <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavourite(event, ${item.id})">
+                <i data-lucide="heart"></i>
+            </button>
+            <div class="card-img">
+                <div class="card-qty">x${item.qty}</div>
+                <div class="cond-badge ${condClass}">${item.condition || 'New'}</div>
+                <img src="${imgUrl}" alt="${item.label}">
             </div>
-            <div class="item-price-section">
-                <div class="item-price">${formatPrice(item.price)}</div>
-                <button class="add-to-cart-btn" onclick="addToCart(${item.id})" ${item.stock === 0 ? 'disabled' : ''}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Add to Cart
-                </button>
+            <div class="card-info">
+                <h3>${item.label}</h3>
+                <p><i data-lucide="shield-check" style="width:14px; color:var(--success)"></i> ${isMine ? 'You' : item.seller}</p>
+            </div>
+            <div class="card-footer">
+                <div class="price">$${item.price.toLocaleString()}</div>
+                ${!isMine ? `<button class="btn-cart-sm" onclick="addToCart(event, ${item.id})"><i data-lucide="shopping-bag"></i></button>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderHome() {
+    const grid = document.getElementById('home-grid');
+    grid.innerHTML = State.marketData.slice(0, 4).map(createCardHTML).join('');
+    lucide.createIcons();
+}
+
+function renderExplore() {
+    const grid = document.getElementById('explore-grid');
+    const data = getSortedFilteredData();
+    if(data.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; color:var(--text-muted);">No items match your filters.</div>`;
+    } else {
+        grid.innerHTML = data.map(createCardHTML).join('');
+    }
+    lucide.createIcons();
+}
+
+function renderFavourites() {
+    const grid = document.getElementById('fav-grid');
+    const empty = document.getElementById('fav-empty');
+    const favItems = State.marketData.filter(i => State.favourites.has(i.id));
+    
+    if(favItems.length === 0) {
+        grid.style.display = 'none';
+        empty.style.display = 'flex';
+    } else {
+        grid.style.display = 'grid';
+        empty.style.display = 'none';
+        grid.innerHTML = favItems.map(createCardHTML).join('');
+    }
+    lucide.createIcons();
+}
+
+function toggleFavourite(e, id) {
+    e.stopPropagation();
+    if(State.favourites.has(id)) {
+        State.favourites.delete(id);
+        showToast("Removed from favourites");
+    } else {
+        State.favourites.add(id);
+        showToast("Added to favourites");
+    }
+    document.getElementById('fav-count').innerText = State.favourites.size;
+    renderAllGrids();
+}
+
+function renderOrders() {
+    const tbody = document.getElementById('orders-tbody');
+    tbody.innerHTML = State.orders.map(o => `
+        <tr>
+            <td style="font-weight:700;">${o.id}</td>
+            <td style="font-weight:600;">${o.item}</td>
+            <td style="color:var(--text-muted); font-weight:500;">${o.date}</td>
+            <td style="font-weight:800; color:var(--success);">$${o.amount.toLocaleString()}</td>
+            <td><span class="status-pill ${o.status}">${o.status.toUpperCase()}</span></td>
+            <td><button class="btn-primary-sm" style="background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border);">View</button></td>
+        </tr>
+    `).join('');
+}
+
+function renderMessages() {
+    const list = document.getElementById('message-list');
+    const contacts = ['Ammunation Clerk', 'Benny', 'PDM Sales', 'Simeon'];
+    list.innerHTML = contacts.map((c, i) => `
+        <div class="msg-contact ${i===0?'active':''}">
+            <img src="https://ui-avatars.com/api/?name=${c.replace(' ','+')}&background=cbd5e1&color=0f172a" class="avatar-sm">
+            <div class="contact-info">
+                <h5>${c}</h5>
+                <p>${i===0 ? 'Would you take $40,000 for it?' : 'Thanks for the purchase.'}</p>
             </div>
         </div>
     `).join('');
 }
 
-function renderCart() {
-    const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-    cartCountEl.textContent = itemCount;
+
+// --- EVENTS ---
+function setupEvents() {
+    document.getElementById('global-search').addEventListener('input', (e) => { 
+        State.search = e.target.value; 
+        if(document.getElementById('view-home').classList.contains('active')) switchTab('explore');
+        renderExplore(); 
+    });
     
-    if (cart.length === 0) {
-        cartEmptyEl.style.display = 'flex';
-        cartItemsEl.innerHTML = '';
-        cartItemsEl.appendChild(cartEmptyEl);
-    } else {
-        cartEmptyEl.style.display = 'none';
-        cartItemsEl.innerHTML = cart.map(cartItem => {
-            const item = marketplaceItems.find(i => i.id === cartItem.id);
-            if (!item) return '';
+    document.querySelectorAll('.pill').forEach(pill => {
+        pill.addEventListener('click', (e) => {
+            document.querySelector('.pill.active').classList.remove('active');
+            e.target.classList.add('active');
+            State.filter = e.target.dataset.cat;
+            renderExplore();
+        });
+    });
+
+    document.getElementById('min-price').addEventListener('input', (e) => { State.priceMin = e.target.value; renderExplore(); });
+    document.getElementById('max-price').addEventListener('input', (e) => { State.priceMax = e.target.value; renderExplore(); });
+
+    const sellPriceInput = document.getElementById('sell-price');
+    const sellQtyInput = document.getElementById('sell-qty');
+    
+    function updateFeeCalc() {
+        const p = parseFloat(sellPriceInput.value) || 0;
+        const q = parseInt(sellQtyInput.value) || 1;
+        const total = p * q;
+        const fee = total * 0.05;
+        document.getElementById('calc-price').innerText = `$${total.toLocaleString()}`;
+        document.getElementById('calc-fee').innerText = `-$${fee.toLocaleString()}`;
+        document.getElementById('calc-earn').innerText = `$${(total - fee).toLocaleString()}`;
+    }
+    sellPriceInput.addEventListener('input', updateFeeCalc);
+    sellQtyInput.addEventListener('input', updateFeeCalc);
+
+    document.getElementById('sell-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const sel = document.getElementById('inventory-select');
+        const data = {
+            item: sel.value,
+            label: sel.options[sel.selectedIndex].text.split(' (')[0],
+            amount: parseInt(sellQtyInput.value),
+            price: parseFloat(sellPriceInput.value)
+        };
+        fetch(`https://${GetParentResourceName()}/marketplace:postAd`, { method: 'POST', body: JSON.stringify(data) }).catch(()=>{});
+        
+        State.marketData.unshift({ id: Date.now(), item: data.item, label: data.label, price: data.price, qty: data.amount, seller: State.user.name, category: document.getElementById('sell-category').value, condition: document.getElementById('sell-condition').value });
+        
+        closeModal('sell-modal');
+        showToast(`Listed ${data.amount}x ${data.label} successfully.`);
+        renderAllGrids();
+        switchTab('explore');
+    });
+}
+
+// --- MODALS ---
+function openProductModal(id) {
+    const item = State.marketData.find(i => i.id === id);
+    if(!item) return;
+
+    const modal = document.getElementById('product-modal');
+    const content = document.getElementById('modal-content');
+    const isMine = item.seller === State.user.name;
+
+    content.innerHTML = `
+        <div class="modal-left">
+            <img class="main-preview" src="https://via.placeholder.com/400/f1f5f9/0f172a?text=${item.label.split(' ')[0]}" alt="Item">
+        </div>
+        <div class="modal-right">
+            <h2 style="font-size:2.2rem; font-weight:800; margin-bottom:16px;">${item.label}</h2>
             
-            return `
-                <div class="cart-item">
-                    <div class="cart-item-icon">
-                        <img src="${item.image}" alt="${item.name}" onerror="this.style.display='none';">
-                    </div>
-                    <div class="cart-item-info">
-                        <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-price">${formatPrice(item.price * cartItem.quantity)}</div>
-                    </div>
-                    <div class="cart-item-controls">
-                        <button class="qty-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
-                        <span class="qty-value">${cartItem.quantity}</span>
-                        <button class="qty-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
-                        <button class="remove-btn" onclick="removeFromCart(${item.id})">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
-                    </div>
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom: 24px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-surface);">
+                <img src="https://ui-avatars.com/api/?name=${item.seller.replace(' ','+')}&background=0f172a&color=fff" class="avatar-sm">
+                <div>
+                    <div style="font-weight:700; font-size: 1.05rem;">${isMine ? 'You' : item.seller}</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">Verified Merchant</div>
                 </div>
-            `;
-        }).join('');
-    }
+            </div>
+
+            <table class="spec-table">
+                <tr><td>Category</td><td style="text-transform:capitalize;">${item.category}</td></tr>
+                <tr><td>Condition</td><td><span class="cond-badge" style="position:static;">${item.condition || 'Standard'}</span></td></tr>
+                <tr><td>Stock Available</td><td>${item.qty} Units</td></tr>
+                <tr><td>Delivery Options</td><td>Pick up / Drone Delivery</td></tr>
+            </table>
+
+            <div class="modal-action-row">
+                <div class="modal-price">$${item.price.toLocaleString()}</div>
+                ${!isMine ? `<button class="btn-primary" onclick="addToCart(event, ${item.id}); closeModal('product-modal');">Add to Cart</button>` : `<button class="btn-primary" disabled style="background:var(--bg-surface); border:1px solid var(--border); color:var(--text-muted); box-shadow:none;">Your Listing</button>`}
+            </div>
+        </div>
+    `;
+    modal.classList.add('open');
+}
+
+function openModal(id) { 
+    if(id === 'sell-modal') populateSelect(); 
+    document.getElementById(id).classList.add('open'); 
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); document.getElementById('cart-panel').classList.remove('open'); }
+
+// --- CART ---
+function toggleCart() { document.getElementById('cart-panel').classList.toggle('open'); }
+
+function addToCart(e, id) {
+    if(e) e.stopPropagation();
+    const item = State.marketData.find(i => i.id === id);
+    if (!item || State.cart.find(i => i.id === id)) return;
+
+    State.cart.push(item);
+    updateCart();
+    showToast(`${item.label} added to cart`);
+}
+
+function updateCart() {
+    const container = document.getElementById('cart-items');
+    document.getElementById('cart-badge').innerText = State.cart.length;
     
-    updateTotal();
-    updateConfirmButton();
-}
-
-function filterItems() {
-    const searchValue = document.getElementById('search-input').value.toLowerCase();
-    renderItems(searchValue);
-}
-
-// ============================================
-// CART FUNCTIONS
-// ============================================
-
-function addToCart(itemId) {
-    const item = marketplaceItems.find(i => i.id === itemId);
-    if (!item || item.stock === 0) return;
+    let subtotal = 0;
+    container.innerHTML = State.cart.map((item, index) => {
+        subtotal += item.price;
+        return `
+            <div class="cart-item">
+                <div class="cart-info">
+                    <h4>${item.label}</h4>
+                    <p>$${item.price.toLocaleString()}</p>
+                </div>
+                <button class="remove-btn" onclick="State.cart.splice(${index}, 1); updateCart();"><i data-lucide="trash-2"></i></button>
+            </div>
+        `;
+    }).join('');
     
-    const existingItem = cart.find(c => c.id === itemId);
+    const tax = subtotal * 0.08;
+    const total = subtotal + tax;
+
+    document.getElementById('cart-subtotal').innerText = `$${subtotal.toLocaleString()}`;
+    document.getElementById('cart-tax').innerText = `$${tax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('cart-total').innerText = `$${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    lucide.createIcons();
+}
+
+function checkout() {
+    if(State.cart.length === 0) return;
+    State.cart.forEach(item => { fetch(`https://${GetParentResourceName()}/marketplace:buyAd`, { method: 'POST', body: JSON.stringify(item.id) }).catch(()=>{}); });
     
-    if (existingItem) {
-        if (existingItem.quantity < item.stock) {
-            existingItem.quantity++;
-        } else {
-            showToast('Not enough stock!');
-            return;
-        }
-    } else {
-        cart.push({ id: itemId, quantity: 1 });
-    }
+    State.cart.forEach(item => {
+        State.orders.unshift({ id: '#ORD-'+Math.floor(Math.random()*9000+1000), item: item.label, date: 'Just now', amount: item.price, status: 'completed' });
+    });
+    renderOrders();
     
-    renderCart();
-    showToast(`${item.name} added to cart`);
+    State.cart = [];
+    updateCart();
+    toggleCart();
+    showToast(`Payment successful. Order confirmed.`);
 }
 
-function updateQuantity(itemId, change) {
-    const cartItem = cart.find(c => c.id === itemId);
-    const item = marketplaceItems.find(i => i.id === itemId);
-    
-    if (!cartItem || !item) return;
-    
-    const newQuantity = cartItem.quantity + change;
-    
-    if (newQuantity <= 0) {
-        removeFromCart(itemId);
-    } else if (newQuantity <= item.stock) {
-        cartItem.quantity = newQuantity;
-        renderCart();
-    } else {
-        showToast('Not enough stock!');
-    }
+// --- UTILS ---
+function populateSelect() {
+    document.getElementById('inventory-select').innerHTML = State.inventory.map(i => `<option value="${i.name}">${i.label} (${i.count})</option>`).join('');
 }
 
-function removeFromCart(itemId) {
-    cart = cart.filter(c => c.id !== itemId);
-    renderCart();
-}
-
-function getCartTotal() {
-    return cart.reduce((total, cartItem) => {
-        const item = marketplaceItems.find(i => i.id === cartItem.id);
-        return total + (item ? item.price * cartItem.quantity : 0);
-    }, 0);
-}
-
-function updateTotal() {
-    totalAmountEl.textContent = formatPrice(getCartTotal());
-}
-
-function updateConfirmButton() {
-    const total = getCartTotal();
-    const canAfford = total <= playerBalance && total > 0;
-    confirmBtn.disabled = !canAfford;
-}
-
-function confirmPurchase() {
-    const total = getCartTotal();
-    
-    if (cart.length === 0) {
-        showToast('Your cart is empty!');
-        return;
-    }
-    
-    if (total > playerBalance) {
-        showToast('Not enough money!');
-        return;
-    }
-    
-    // Send purchase to FiveM server
-    fetch(`https://${GetParentResourceName()}/purchase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            items: cart.map(c => ({
-                id: c.id,
-                quantity: c.quantity
-            })),
-            total: total
-        })
-    }).then(response => response.json())
-      .then(data => {
-          if (data.success !== false) {
-              // Update local state for demo
-              playerBalance -= total;
-              playerBalanceEl.textContent = formatPrice(playerBalance);
-              
-              // Update stock locally
-              cart.forEach(cartItem => {
-                  const item = marketplaceItems.find(i => i.id === cartItem.id);
-                  if (item) item.stock -= cartItem.quantity;
-              });
-              
-              cart = [];
-              renderCart();
-              renderItems();
-              showToast('Purchase successful!');
-          }
-      })
-      .catch(() => {
-          // Demo mode without FiveM
-          playerBalance -= total;
-          playerBalanceEl.textContent = formatPrice(playerBalance);
-          
-          cart.forEach(cartItem => {
-              const item = marketplaceItems.find(i => i.id === cartItem.id);
-              if (item) item.stock -= cartItem.quantity;
-          });
-          
-          cart = [];
-          renderCart();
-          renderItems();
-          showToast('Purchase successful!');
-      });
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-function formatPrice(amount) {
-    return '$' + amount.toLocaleString();
-}
-
-function getStockClass(stock) {
-    if (stock === 0) return 'out-of-stock';
-    if (stock <= 10) return 'low-stock';
-    return 'in-stock';
-}
-
-function getStockText(stock) {
-    if (stock === 0) return 'Out of Stock';
-    if (stock <= 10) return `Low Stock (${stock} left)`;
-    return `In Stock (${stock})`;
-}
-
-function showToast(message) {
-    const existingToast = document.querySelector('.toast');
-    if (existingToast) existingToast.remove();
-    
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span class="toast-message">${message}</span>
-    `;
-    
-    document.body.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 2500);
+    toast.innerHTML = `<i data-lucide="check-circle" style="color:var(--success)"></i> ${msg}`;
+    container.appendChild(toast);
+    lucide.createIcons();
+    setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3000);
 }
-
-// ============================================
-// EVENT LISTENERS
-// ============================================
-
-// Close with ESC key
-document.addEventListener('keyup', function(e) {
-    if (e.key === 'Escape') {
-        closeUI();
-    }
-});
-
-// ============================================
-// INITIALIZE - Comment this out for FiveM production
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-open for browser testing (comment out for FiveM)
-    container.classList.add('active');
-    renderItems();
-    renderCart();
-});
