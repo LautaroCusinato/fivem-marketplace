@@ -1,38 +1,324 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Market - Ultimate Edition</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-
 <body>
+    <div id="app" style="display: none;">
+        <div class="app-container">
+            
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="logo">
+                        <div class="logo-grid">
+                            <span></span><span></span><span></span><span></span>
+                        </div>
+                        <div class="logo-text">NEXUS</div>
+                    </div>
+                </div>
 
-<div id="tablet">
-    
-    <div class="header">
-        <span>Bug Marketplace</span>
-        <button id="close">X</button>
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li class="active" data-tab="home" onclick="switchTab('home')"><i data-lucide="home"></i> Home</li>
+                        <li data-tab="explore" onclick="switchTab('explore')"><i data-lucide="compass"></i> Explore</li>
+                        <li data-tab="favourites" onclick="switchTab('favourites')"><i data-lucide="heart"></i> Favourites <span class="nav-badge" id="fav-count">0</span></li>
+                        <li data-tab="orders" onclick="switchTab('orders')"><i data-lucide="box"></i> Orders</li>
+                        <li data-tab="messages" onclick="switchTab('messages')"><i data-lucide="message-square"></i> Messages <span class="nav-badge alert">2</span></li>
+                        <li data-tab="settings" onclick="switchTab('settings')"><i data-lucide="settings"></i> Settings</li>
+                    </ul>
+                </nav>
+
+                <div class="sidebar-promo">
+                    <div class="promo-icon"><i data-lucide="tag"></i></div>
+                    <h4>Got excess gear?</h4>
+                    <p>Turn your inventory into cash instantly.</p>
+                    <button class="btn-primary-sm w-100" onclick="openModal('sell-modal')">Create Listing</button>
+                </div>
+
+                <div class="sidebar-footer">
+                    <div class="wallet-info">
+                        <i data-lucide="wallet"></i>
+                        <div>
+                            <span class="wallet-lbl">Balance</span>
+                            <span class="wallet-val">$14,500</span>
+                        </div>
+                    </div>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">
+                        <i data-lucide="moon" id="theme-icon"></i>
+                    </button>
+                </div>
+
+                <div class="sidebar-user" onclick="switchTab('settings')">
+                    <img src="https://ui-avatars.com/api/?name=Leonel+Borovsky&background=0f172a&color=fff" class="avatar" alt="Avatar">
+                    <div class="user-info">
+                        <h5 id="sidebar-username">Fruti Dev</h5>
+                        <p>Verified Seller</p>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="main-content">
+                <header class="top-header">
+                    <div class="header-left">
+                        <h2 id="page-title">Home</h2>
+                    </div>
+                    
+                    <div class="header-filters hidden" id="explore-filters">
+                        <div class="dropdown" data-dropdown="location">
+                            <button class="filter-dropdown" onclick="toggleDropdown('location')"><i data-lucide="map-pin"></i> <span id="loc-text">Los Santos</span> <i data-lucide="chevron-down"></i></button>
+                            <div class="dropdown-menu">
+                                <div class="dropdown-item" onclick="selectDropdown('location', 'Los Santos')">Los Santos</div>
+                                <div class="dropdown-item" onclick="selectDropdown('location', 'Sandy Shores')">Sandy Shores</div>
+                                <div class="dropdown-item" onclick="selectDropdown('location', 'Paleto Bay')">Paleto Bay</div>
+                            </div>
+                        </div>
+
+                        <div class="dropdown" data-dropdown="sort">
+                            <button class="filter-dropdown" onclick="toggleDropdown('sort')"><i data-lucide="sliders-horizontal"></i> <span id="sort-text">Best deals</span> <i data-lucide="chevron-down"></i></button>
+                            <div class="dropdown-menu">
+                                <div class="dropdown-item" onclick="selectSort('recent', 'Newest Arrivals')">Newest Arrivals</div>
+                                <div class="dropdown-item" onclick="selectSort('price_asc', 'Price: Low to High')">Price: Low to High</div>
+                                <div class="dropdown-item" onclick="selectSort('price_desc', 'Price: High to Low')">Price: High to Low</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="header-right">
+                        <div class="search-bar">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="global-search" placeholder="Search the market...">
+                        </div>
+                        <button class="icon-btn" onclick="toggleCart()">
+                            <i data-lucide="shopping-bag"></i>
+                            <span class="badge" id="cart-badge">0</span>
+                        </button>
+                        <button class="icon-btn close-app" onclick="closeUI()"><i data-lucide="power"></i></button>
+                    </div>
+                </header>
+
+                <div class="scroll-area">
+                    
+                    <div id="view-home" class="page-view active">
+                        <section class="hero-banner">
+                            <div class="hero-content">
+                                <div class="brand-tag">PREMIUM VENDOR SPOTLIGHT</div>
+                                <h2>Los Santos Customs</h2>
+                                <p>Discover high-performance tuning parts, vehicle upgrades, and exclusive imports directly from verified mechanics.</p>
+                                <button class="btn-primary" onclick="switchTab('explore')">Shop Collection</button>
+                            </div>
+                            <div class="hero-image"></div>
+                        </section>
+
+                        <div class="section-header">
+                            <h3>Trending Now</h3>
+                            <button class="text-link" onclick="switchTab('explore')">See all <i data-lucide="arrow-right"></i></button>
+                        </div>
+                        <div class="product-grid" id="home-grid">
+                            </div>
+                    </div>
+
+                    <div id="view-explore" class="page-view">
+                        <div class="explore-tools">
+                            <div class="category-pills" id="category-pills">
+                                <button class="pill active" data-cat="all">All Items</button>
+                                <button class="pill" data-cat="weapons">Weapons & Gear</button>
+                                <button class="pill" data-cat="vehicles">Vehicles</button>
+                                <button class="pill" data-cat="consumables">Consumables</button>
+                                <button class="pill" data-cat="tools">Tools & Parts</button>
+                            </div>
+                            <div class="price-filter">
+                                <input type="number" id="min-price" placeholder="Min $">
+                                <span>-</span>
+                                <input type="number" id="max-price" placeholder="Max $">
+                            </div>
+                        </div>
+                        <div class="product-grid" id="explore-grid"></div>
+                    </div>
+
+                    <div id="view-favourites" class="page-view">
+                        <div class="empty-state" id="fav-empty">
+                            <i data-lucide="heart"></i>
+                            <h3>No favourites yet</h3>
+                            <p>Items you heart will appear here.</p>
+                            <button class="btn-primary mt-3" onclick="switchTab('explore')">Start Browsing</button>
+                        </div>
+                        <div class="product-grid" id="fav-grid"></div>
+                    </div>
+
+                    <div id="view-orders" class="page-view">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Item</th>
+                                        <th>Date</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-tbody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="view-messages" class="page-view message-layout">
+                        <div class="message-sidebar" id="message-list">
+                            </div>
+                        <div class="message-chat">
+                            <div class="chat-header">
+                                <div class="chat-user">
+                                    <img src="https://ui-avatars.com/api/?name=Ammunation&background=cbd5e1&color=0f172a" class="avatar-sm">
+                                    <h4>Ammunation Clerk</h4>
+                                </div>
+                                <button class="icon-btn-ghost"><i data-lucide="more-vertical"></i></button>
+                            </div>
+                            <div class="chat-history" id="chat-history">
+                                <div class="chat-bubble received">Hey, is the Assault Rifle MK2 still available?</div>
+                                <div class="chat-bubble sent">Yes it is. Brand new condition.</div>
+                                <div class="chat-bubble received">Would you take $40,000 for it?</div>
+                            </div>
+                            <div class="chat-input-area">
+                                <button class="icon-btn-ghost"><i data-lucide="paperclip"></i></button>
+                                <input type="text" placeholder="Type a message...">
+                                <button class="btn-primary-sm"><i data-lucide="send"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="view-settings" class="page-view">
+                        <div class="settings-grid">
+                            <div class="settings-card profile-card">
+                                <img src="https://ui-avatars.com/api/?name=Leonel+Borovsky&background=0f172a&color=fff" class="avatar-lg">
+                                <h2>Fruti Dev</h2>
+                                <p>Joined March 2024 • Rating: 4.9 <i data-lucide="star" style="width:14px; fill:#ffb800; color:#ffb800;"></i></p>
+                                <div class="stats-row mt-3">
+                                    <div class="stat"><span class="val">42</span><span class="lbl">Items Sold</span></div>
+                                    <div class="stat"><span class="val">$124k</span><span class="lbl">Total Earned</span></div>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-card form-card">
+                                <h3>Account Details</h3>
+                                <form id="settings-form">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Display Name</label>
+                                            <input type="text" value="Fruti Dev">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>National ID / DNI</label>
+                                            <input type="text" value="46958193" disabled class="disabled-input">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Store Bio</label>
+                                        <textarea rows="3">Quality weapons and imports. No lowballers.</textarea>
+                                    </div>
+                                    <div class="form-group toggle-group">
+                                        <label>Receive Email Notifications</label>
+                                        <input type="checkbox" checked class="toggle">
+                                    </div>
+                                    <button type="button" class="btn-primary mt-3" onclick="showToast('Settings saved successfully.')">Save Changes</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+
+            <div id="product-modal" class="modal-overlay">
+                <div class="modal-container large">
+                    <button class="modal-close" onclick="closeModal('product-modal')"><i data-lucide="x"></i></button>
+                    <div class="modal-grid" id="modal-content"></div>
+                </div>
+            </div>
+
+            <div id="sell-modal" class="modal-overlay">
+                <div class="modal-container medium">
+                    <button class="modal-close" onclick="closeModal('sell-modal')"><i data-lucide="x"></i></button>
+                    <div class="modal-header">
+                        <h3>Create Market Listing</h3>
+                        <p>Fill out the details below to list your item globally.</p>
+                    </div>
+                    <form id="sell-form" class="modal-body scroll-form">
+                        <div class="form-group">
+                            <label>Select Item from Inventory</label>
+                            <select id="inventory-select" required></select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Quantity</label>
+                                <input type="number" id="sell-qty" min="1" value="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Price per unit ($)</label>
+                                <input type="number" id="sell-price" min="1" placeholder="e.g. 500" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Item Condition</label>
+                                <select id="sell-condition">
+                                    <option>Factory New</option>
+                                    <option>Slight Wear</option>
+                                    <option>Used / Field-Tested</option>
+                                    <option>Damaged</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select id="sell-category">
+                                    <option value="weapons">Weapons</option>
+                                    <option value="vehicles">Vehicles</option>
+                                    <option value="consumables">Consumables</option>
+                                    <option value="tools">Tools</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description (Optional)</label>
+                            <textarea id="sell-desc" rows="2" placeholder="Add extra details..."></textarea>
+                        </div>
+                        
+                        <div class="fee-breakdown">
+                            <div class="fee-row"><span>Listing Price:</span> <span id="calc-price" style="font-weight: 600;">$0</span></div>
+                            <div class="fee-row"><span>Market Fee (5%):</span> <span id="calc-fee" class="negative">-$0</span></div>
+                            <div class="fee-row total"><span>You Earn:</span> <span id="calc-earn" class="positive">$0</span></div>
+                        </div>
+
+                        <button type="submit" class="btn-primary w-100 mt-3">Publish Listing</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="cart-panel" class="side-panel">
+                <div class="panel-header">
+                    <h3>Your Cart</h3>
+                    <button class="icon-btn-ghost" onclick="toggleCart()"><i data-lucide="x"></i></button>
+                </div>
+                <div class="panel-body" id="cart-items"></div>
+                <div class="panel-footer">
+                    <div class="fee-row mb-2"><span>Subtotal</span><span id="cart-subtotal">$0</span></div>
+                    <div class="fee-row mb-2"><span>Tax (8%)</span><span id="cart-tax">$0</span></div>
+                    <div class="fee-row total mb-3"><span>Total</span><span id="cart-total">$0</span></div>
+                    <button class="btn-primary w-100" onclick="checkout()">Checkout & Pay</button>
+                </div>
+            </div>
+
+            <div id="toast-container"></div>
+
+        </div>
     </div>
 
-    <div class="content">
-
-        <div class="item">
-            <h3>AK47</h3>
-            <p>$5000</p>
-            <button>Comprar</button>
-        </div>
-
-        <div class="item">
-            <h3>Chaleco</h3>
-            <p>$2500</p>
-            <button>Comprar</button>
-        </div>
-
-    </div>
-
-</div>
-
-<script src="script.js"></script>
-
+    <script src="script.js"></script>
 </body>
 </html>
