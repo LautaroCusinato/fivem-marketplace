@@ -95,3 +95,41 @@ AddEventHandler('marketplace:server:postAd', function(data)
         end
     end
 end)
+
+RegisterNetEvent('perfecto_tablet:server:comprarObjetoTablet')
+AddEventHandler('perfecto_tablet:server:comprarObjetoTablet', function()
+    local _source = source
+    local xPlayer = ESX.GetPlayerFromId(_source)
+    local precio = 500
+    local nombreItem = "tablet" -- <--- REVISA QUE ESTO COINCIDA CON TU BASE DE DATOS
+
+    if not xPlayer then 
+        print("^1[ERROR]^7 No se pudo encontrar al jugador con ID: " .. _source)
+        return 
+    end
+
+    local dineroActual = xPlayer.getMoney()
+    print("^3[DEBUG]^7 Jugador " .. xPlayer.getName() .. " intentando comprar tablet. Dinero: $" .. dineroActual)
+
+    if dineroActual >= precio then
+        xPlayer.removeMoney(precio)
+        
+        -- Intentamos dar el objeto
+        local success = xPlayer.addInventoryItem(nombreItem, 1)
+        
+        -- Si usas ox_inventory, a veces addInventoryItem no devuelve un booleano, 
+        -- pero la notificación nos confirmará si llegó.
+        TriggerClientEvent('esx:showNotification', _source, "Has comprado una Tablet por $500")
+        print("^2[SUCCESS]^7 Item '" .. nombreItem .. "' entregado a " .. xPlayer.getName())
+    else
+        TriggerClientEvent('esx:showNotification', _source, "~r~No tienes suficiente dinero ($500)")
+        print("^1[AVISO]^7 Jugador no tiene suficiente dinero.")
+    end
+end)
+
+-- Hacer que el ítem sea usable
+ESX.RegisterUsableItem('tablet', function(source)
+    local _source = source
+    -- Enviamos un evento al cliente del jugador que usó la tablet
+    TriggerClientEvent('perfecto_tablet:client:usarTablet', _source)
+end)

@@ -1,3 +1,4 @@
+
 local isVisible = false
 local isPlacing = false
 local ghostPed = nil
@@ -39,7 +40,7 @@ local function OpenTabletUI()
         if data then
             isVisible = true
             SetNuiFocus(true, true)
-            StartTabletAnimation()
+            -- StartTabletAnimation()  <-- BORRA O COMENTA ESTA LÍNEA AQUÍ
             SendNUIMessage({
                 action = 'open',
                 balance = data.money,
@@ -66,18 +67,26 @@ function SpawnTabletNPC(data)
     lib.requestAnimDict("amb@world_human_clipboard@male@idle_a")
     TaskPlayAnim(tabletNPC, "amb@world_human_clipboard@male@idle_a", "idle_c", 8.0, -8.0, -1, 1, 0, false, false, false)
 
+    -- AQUI LAS OPCIONES DEL OJITO
     exports.ox_target:addLocalEntity(tabletNPC, {
+        {
+            name = 'comprar_tablet',
+            icon = 'fa-solid fa-cart-shopping',
+            label = 'Comprar Tablet ($500)',
+            onSelect = function()
+                TriggerServerEvent('perfecto_tablet:server:comprarObjetoTablet')
+            end
+        },
         {
             name = 'abrir_tablet',
             icon = 'fa-solid fa-tablet-screen-button',
-            label = 'Acceder al Marketplace',
+            label = 'Acceder a la Tablet',
             onSelect = function()
                 OpenTabletUI()
             end
         }
     })
 end
-
 -- === SISTEMA DE POSICIONAMIENTO (Raycast) ===
 
 function GetGroundAtCamera()
@@ -166,4 +175,37 @@ end)
 RegisterNetEvent('perfecto_tablet:client:actualizarNPC')
 AddEventHandler('perfecto_tablet:client:actualizarNPC', function(data)
     SpawnTabletNPC(data)
+end)
+
+-- Evento que se activa al usar el ítem desde el inventario
+RegisterNetEvent('perfecto_tablet:client:usarTablet')
+AddEventHandler('perfecto_tablet:client:usarTablet', function()
+    if isVisible then return end -- Si ya está abierta, no hacer nada
+
+    -- Iniciamos la animación de la tablet mientras carga
+    StartTabletAnimation()
+
+    -- Barra de progreso de ox_lib
+    if lib.progressBar({
+        duration = 3000, -- 3 segundos de delay
+        label = 'Encendiendo Tablet...',
+        useWhileDead = false,
+        canCancel = true,
+        disable = {
+            car = true,
+            move = true,
+            combat = true,
+        },
+        anim = {
+            dict = "amb@world_human_seat_wall_tablet@female@base",
+            clip = "base"
+        },
+    }) then 
+        -- Si termina la barra de progreso, abrimos la UI
+        OpenTabletUI()
+    else 
+        -- Si el jugador cancela (con ESC), quitamos la animación
+        StopTabletAnimation()
+        ESX.ShowNotification("Cancelado")
+    end
 end)
