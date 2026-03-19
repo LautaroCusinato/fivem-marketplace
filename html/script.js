@@ -50,8 +50,17 @@ window.addEventListener('message', (event) => {
 });
 
 function closeUI() {
-    fetch(`https://${GetParentResourceName()}/closeTablet`, { method: 'POST', body: JSON.stringify({}) }).catch(()=>{});
+    // 1. Enviamos el evento 'close' a Lua (asegúrate que en client.lua sea RegisterNUICallback('close', ...))
+    fetch(`https://${GetParentResourceName()}/close`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify({}) 
+    }).catch(() => {});
+
+    // 2. Ocultamos el div principal
     document.getElementById('app').style.display = 'none';
+    
+    // 3. Limpiamos cualquier modal abierto
     closeAllModals();
 }
 
@@ -451,3 +460,36 @@ function showToast(msg) {
     lucide.createIcons();
     setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3000);
 }
+
+// Función para enviar datos a Lua
+function fetchData(name, data) {
+    return fetch(`https://${GetParentResourceName()}/${name}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: JSON.stringify(data || {})
+    })
+    .then(response => {
+        // Verificamos si la respuesta tiene contenido antes de intentar leer el JSON
+        if (response.ok && response.status !== 204) {
+            return response.json();
+        }
+        return {};
+    })
+    .catch(err => console.error("Error en Fetch:", err));
+}
+
+// Ejemplo de cómo deberías llamar al cierre en tu JS
+function closeMenu() {
+    // Esto enviará el mensaje al callback "close" que definimos en Lua
+    fetchData('close', {}); 
+    // Aquí ocultas tu div principal (ejemplo: #tablet-container)
+    document.getElementById('tablet-container').style.display = 'none';
+}
+
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        closeUI();
+    }
+});
