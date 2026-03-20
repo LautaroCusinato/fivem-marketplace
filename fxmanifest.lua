@@ -19,9 +19,9 @@ files {
     'html/index.html',
     'html/style.css',
     'html/script.js',
-    -- Imágenes de items (si las tenés locales, van en html/img/)
-    -- 'html/img/*.png',
 }
+
+
 
 -- ── CLIENTE ───────────────────────────────────────────────────
 client_scripts {

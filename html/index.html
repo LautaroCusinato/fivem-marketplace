@@ -251,14 +251,27 @@
                     <img src="https://ui-avatars.com/api/?name=Player&background=1e3a5f&color=60a5fa&bold=true&size=128"
                          class="avatar-lg" id="profile-avatar">
                     <h2 id="profile-name">Cargando...</h2>
-                    <p style="color:var(--text-muted);font-size:0.85rem;margin-top:6px">
-                        Unido en 2024 &middot; Rating: 4.9
-                        <i data-lucide="star" style="width:13px;fill:#ffb800;color:#ffb800;vertical-align:middle"></i>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-top:6px">
+                        Vendedor del Hangar Marketplace
                     </p>
-                    <div class="stats-row">
-                        <div class="stat"><span class="val">42</span><span class="lbl">Ventas</span></div>
-                        <div class="stat"><span class="val">$124k</span><span class="lbl">Ganado</span></div>
-                        <div class="stat"><span class="val">4.9★</span><span class="lbl">Rating</span></div>
+                    <!-- Stats reales desde DB -->
+                    <div class="stats-row" style="flex-wrap:wrap;gap:8px">
+                        <div class="stat">
+                            <span class="val" id="profile-sales">0</span>
+                            <span class="lbl">Ventas</span>
+                        </div>
+                        <div class="stat">
+                            <span class="val" id="profile-purchases">0</span>
+                            <span class="lbl">Compras</span>
+                        </div>
+                        <div class="stat">
+                            <span class="val positive" id="profile-earned">$0</span>
+                            <span class="lbl">Ganado</span>
+                        </div>
+                        <div class="stat">
+                            <span class="val" id="profile-spent">$0</span>
+                            <span class="lbl">Gastado</span>
+                        </div>
                     </div>
                 </div>
                 <div class="settings-card form-card">
@@ -321,32 +334,25 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Cantidad</label>
-                    <input type="number" id="sell-qty" min="1" value="1" required>
-                </div>
-                <div class="form-group">
                     <label>Precio por unidad ($)</label>
                     <input type="number" id="sell-price" min="1" placeholder="ej. 500" required>
                 </div>
             </div>
+            <!-- Categoría automática (no editable) -->
+            <div class="form-group">
+                <label>Categoría <span style="font-size:0.72rem;color:var(--text-faint)">(automática por tipo de item)</span></label>
+                <div class="auto-field"><span id="sell-category-display">—</span></div>
+            </div>
+
+            <!-- Cantidad mínima de compra -->
             <div class="form-row">
                 <div class="form-group">
-                    <label>Condición</label>
-                    <select id="sell-condition">
-                        <option>Factory New</option>
-                        <option>Slight Wear</option>
-                        <option>Used</option>
-                        <option>Damaged</option>
-                    </select>
+                    <label>Cantidad a publicar</label>
+                    <input type="number" id="sell-qty" min="1" value="1" required>
                 </div>
                 <div class="form-group">
-                    <label>Categoría</label>
-                    <select id="sell-category">
-                        <option value="weapons">Armas</option>
-                        <option value="vehicles">Vehículos</option>
-                        <option value="consumables">Consumibles</option>
-                        <option value="tools">Herramientas</option>
-                    </select>
+                    <label>Mínimo por compra <span style="font-size:0.72rem;color:var(--text-faint)">(el comprador debe pedir al menos esto)</span></label>
+                    <input type="number" id="sell-min-qty" min="1" value="1">
                 </div>
             </div>
             <div class="form-group">
